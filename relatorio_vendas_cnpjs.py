@@ -73,3 +73,68 @@ if coluna_empresa in df_limpo.columns:
     print("\n[Sucesso] Tabelas salvas no SQLite!")
 else:
     print(f"\n[Aviso] Coluna {coluna_empresa} não encontrada. Verifique o nome exato no CSV.")
+
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+
+coluna_empresa = 'RAZÃO_SOCIAL_OU_NOME'
+coluna_produto = 'IDENTIF_DO_PRODUTO_OU_SERVIÇO'
+coluna_valor = 'VL_TOT_DO_PRODUTO_OU_SERVIÇO'
+
+df_gastos_total = df_limpo.groupby(coluna_empresa)[coluna_valor].sum().reset_index()
+top_10_empresas = df_gastos_total.sort_values(by=coluna_valor, ascending=False).head(10)[coluna_empresa].tolist()
+
+df_grafico = df_limpo[df_limpo[coluna_empresa].isin(top_10_empresas)].copy()
+
+df_lado_esquerdo = df_grafico.groupby(coluna_empresa)[coluna_valor].sum().reset_index().sort_values(by=coluna_valor, ascending=False)
+
+
+df_lado_direito = df_grafico.groupby([coluna_empresa, coluna_produto]).size().reset_index(name='QUANTIDADE_DEMANDA')
+
+df_lado_direito[coluna_empresa] = pd.Categorical(df_lado_direito[coluna_empresa], categories=df_lado_esquerdo[coluna_empresa], ordered=True)
+df_lado_direito = df_lado_direito.sort_values(by=coluna_empresa)
+
+
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
+sns.set_theme(style="whitegrid")
+
+
+sns.barplot(
+    data=df_lado_esquerdo,
+    x=coluna_valor,
+    y=coluna_empresa,
+    palette='Blues_r',
+    ax=ax1
+)
+ax1.set_title('GASTOS TOTAIS POR EMPRESA (TOP 10)', fontsize=12, fontweight='bold', pad=15)
+ax1.set_xlabel('Valor Total Acumulado (R$)', fontsize=10)
+ax1.set_ylabel('Empresa / Razão Social', fontsize=10)
+
+
+for index, value in enumerate(df_lado_esquerdo[coluna_valor]):
+    ax1.text(value, index, f' R$ {value:,.2f}', va='center', fontsize=9, fontweight='bold', color='#333333')
+
+
+sns.barplot(
+    data=df_lado_direito,
+    x='QUANTIDADE_DEMANDA',
+    y=coluna_empresa,
+    hue=coluna_produto,
+    palette='viridis',
+    ax=ax2
+)
+ax2.set_title('DEMANDA DE PRODUTOS/SERVIÇOS POR EMPRESA', fontsize=12, fontweight='bold', pad=15)
+ax2.set_xlabel('Quantidade de Transações / Pedidos', fontsize=10)
+ax2.set_ylabel('') # Remove o rótulo do eixo Y porque o sharey=True já compartilha com o esquerdo
+ax2.legend(title='Produto / Serviço', bbox_to_anchor=(1.02, 1), loc='upper left')
+
+
+
+plt.suptitle('RELATÓRIO GERENCIAL DE VENDAS E DEMANDAS', fontsize=16, fontweight='bold', y=0.98)
+plt.tight_layout()
+
+plt.show()
