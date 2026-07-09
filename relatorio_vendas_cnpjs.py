@@ -1,6 +1,7 @@
 import pandas as pd 
 import sqlite3
 import matplotlib.pyplot as plt
+import pathlib
 
 # 1. Carregar os dados
 nome_arquivo = 'nfe2025-08-04---extracao---2025.csv' #arrumar aqui para colocar um caminho que possa ser lido sempre que tiver um csv novo
@@ -53,9 +54,14 @@ df_limpo = limpando_e_filtrando_dados(df) #funçao sendo execultada
 print("--- Dados Prontos para Análise ---") #se der td certo, aparece essa mensagem
 print(df_limpo.head()) #exibe só os primeiros dados da df
 
-# 2. Exibindo dados
+# 2. Pasta de Relatorios
+pasta_imagens = pathlib.Path(r'assets')
+pasta_imagens.mkdir(exist_ok=True)
+
+# 3. Exibindo dados
 coluna_empresa = 'RAZÃO_SOCIAL_OU_NOME' #coluna com os nomes das empresas
 coluna_valor = 'VL_TOT_DO_PRODUTO_OU_SERVIÇO' #coluna com o valor total do produto ou serviço
+coluna_descricao = 'IDENTIF_DO_PRODUTO_OU_SERVIÇO'
 
 if coluna_empresa in df_limpo.columns: #se a coluna com as empresas estiver dentro do df que foi limpo
     relatorio_gastos = df_limpo.groupby(coluna_empresa)[coluna_valor].sum().reset_index() #relatorio de dados totais gastos de acordo com a empresa
@@ -76,15 +82,77 @@ else:
 
 import matplotlib.ticker as ticker
 
-top_empresas = relatorio_gastos.head(10)
-plt.figure(figsize=(10, 5))
-plt.gca().xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: f'R$ {x:,.0f}'.replace(',', '.')))
+top_empresas = relatorio_gastos.head(20)
+
+plt.figure(figsize=(14, 7))
+
+valores_em_milhoes = top_empresas[coluna_valor] / 1e6
+
+barras = plt.barh(top_empresas[coluna_empresa], valores_em_milhoes, color='blue')
+
+
+plt.gca().xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: f'{x:,.0f}'))
 plt.gca().invert_yaxis()
-plt.xticks(rotation=25)
-plt.barh(top_empresas[coluna_empresa],top_empresas[coluna_valor] / 1e6, color='skyblue')
+
+for barra, (_, row) in zip(barras, top_empresas.iterrows()):
+    largura = barra.get_width()
+    valor_real = row[coluna_valor] 
+    
+  
+    texto_moeda = f' R$ {valor_real:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+    
+    plt.annotate(
+        texto_moeda,
+        xy=(largura, barra.get_y() + barra.get_height() / 2),
+        xytext=(-8, 0),          
+        textcoords="offset points",
+        ha='right',              
+        va='center', 
+        fontsize=8, 
+        fontweight='bold', 
+        color='white'    )        
 plt.xlabel('Gasto Total em milhões(R$)')
 plt.ylabel('Empresa')
-plt.title('Top 10 Maiores Gastos por Empresa')
+plt.title('Top Empresas Que Mais Gastam')
 plt.tight_layout()
-plt.savefig('10_empresas_que_mais_gastam.png')
+plt.savefig(pasta_imagens /'20_empresas_que_mais_gastam.png')
+
+print('[Sucesso] Relatório Gerado ')
+
+if coluna_descricao in df_limpo.columns:
+        
+        contagem_itens = df_limpo.groupby(coluna_descricao).size().reset_index(name='Quantidade')
+     
+        top_itens = contagem_itens.sort_values(by='Quantidade', ascending=False).head(10)
+        
+        labels_itens = [f"{row[coluna_descricao][:40]}..." if len(row[coluna_descricao]) > 40 else row[coluna_descricao] 
+                        for _, row in top_itens.iterrows()]
+
+        plt.figure(figsize=(14, 7)) 
+        barras = plt.barh(labels_itens, top_itens['Quantidade'], color='mediumpurple')
+        
+        
+        for barra in barras:
+            largura = barra.get_width()
+            plt.annotate(
+                f'{int(largura)}x',
+                xy=(largura, barra.get_y() + barra.get_height() / 2),
+                xytext=(5, 0), 
+                textcoords="offset points",
+                ha='left', 
+                va='center', 
+                fontsize=9, 
+                fontweight='bold', 
+                color='black'
+            )
+
+        plt.xlabel('Quantidade de Vezes Comprado (Frequência)')
+        plt.ylabel('Produto / Serviço')
+        plt.title('Top 10 Produtos/Serviços Mais Adquiridos')
+        plt.gca().invert_yaxis()  # Deixa o mais comprado no topo
+        plt.tight_layout()
+        plt.savefig(pasta_imagens /'Top 10 Produtos-Serviços Mais Adquiridos.png')
+        print('[Sucesso] Relatório Gerado')
+else:
+        print(f"\n[Aviso] Coluna {coluna_descricao} não encontrada para o segundo gráfico.")
 
