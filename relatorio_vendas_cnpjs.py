@@ -74,14 +74,17 @@ if coluna_empresa in df_limpo.columns: #se a coluna com as empresas estiver dent
 else:
     print(f"\n[Aviso] Coluna {coluna_empresa} não encontrada. Verifique o nome exato no CSV.")
 
+import matplotlib.ticker as ticker
+
 top_empresas = relatorio_gastos.head(10)
 plt.figure(figsize=(10, 5))
+plt.gca().xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: f'R$ {x:,.0f}'.replace(',', '.')))
+plt.gca().invert_yaxis()
+plt.xticks(rotation=25)
 plt.barh(top_empresas[coluna_empresa],top_empresas[coluna_valor] / 1e6, color='skyblue')
 plt.xlabel('Gasto Total em milhões(R$)')
 plt.ylabel('Empresa')
 plt.title('Top 10 Maiores Gastos por Empresa')
-plt.gca().invert_yaxis() # Maior gasto fica no topo
 plt.tight_layout()
 plt.savefig('10_empresas_que_mais_gastam.png')
-
 
